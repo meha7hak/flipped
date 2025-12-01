@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Upload, BookOpen, Moon, Sun, Bookmark, BookmarkCheck, Maximize, MinusSquare, Hash } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -10,30 +10,23 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [scale, setScale] = useState(1.0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [pdfDoc, setPdfDoc] = useState(null);
   const [isFlipping, setIsFlipping] = useState(false);
   const [flipDirection, setFlipDirection] = useState(null);
-  const [nextPageToShow, setNextPageToShow] = useState(null);
   const [theme, setTheme] = useState('light');
   const [bookmarks, setBookmarks] = useState([]);
   const [pageInput, setPageInput] = useState('');
   const [showPageJump, setShowPageJump] = useState(false);
   const [fitMode, setFitMode] = useState('auto');
   const [pdfName, setPdfName] = useState('');
-  
+
   const currentCanvasRef = useRef(null);
   const nextCanvasRef = useRef(null);
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
   const pageInputRef = useRef(null);
 
-  useEffect(() => {
-    const savedPosition = localStorage.getItem('flipped_last_position');
-    if (savedPosition) {
-      const { page, pdfName: savedPdfName } = JSON.parse(savedPosition);
-    }
-  }, []);
+
 
   useEffect(() => {
     if (pdfData && pdfName) {
@@ -51,12 +44,12 @@ export default function App() {
 
       const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
       const pdf = await loadingTask.promise;
-      
+
       setPdfDoc(pdf);
       setTotalPages(pdf.numPages);
       setPdfData(uint8Array);
       setPdfName(file.name);
-      
+
       const savedPosition = localStorage.getItem('flipped_last_position');
       if (savedPosition) {
         const { page, pdfName: savedPdfName } = JSON.parse(savedPosition);
@@ -74,31 +67,31 @@ export default function App() {
     }
   };
 
-  const getScaleForFitMode = (page, viewport) => {
+  const getScaleForFitMode = useCallback((page, viewport) => {
     if (!containerRef.current) return scale;
-    
+
     const container = containerRef.current;
     const containerWidth = container.clientWidth - 64;
     const containerHeight = container.clientHeight - 200;
-    
+
     if (fitMode === 'width') {
       return containerWidth / viewport.width;
     } else if (fitMode === 'height') {
       return containerHeight / viewport.height;
     }
     return scale;
-  };
+  }, [fitMode, scale]);
 
-  const renderPage = async (pageNum, canvas) => {
+  const renderPage = useCallback(async (pageNum, canvas) => {
     if (!pdfDoc || !canvas) return;
 
     try {
       const page = await pdfDoc.getPage(pageNum);
       let viewport = page.getViewport({ scale: 1.0 });
-      
+
       const finalScale = fitMode === 'auto' ? scale : getScaleForFitMode(page, viewport);
       viewport = page.getViewport({ scale: finalScale });
-      
+
       const context = canvas.getContext('2d');
       canvas.height = viewport.height;
       canvas.width = viewport.width;
@@ -112,13 +105,13 @@ export default function App() {
     } catch (error) {
       console.error('Error rendering page:', error);
     }
-  };
+  }, [pdfDoc, fitMode, scale, getScaleForFitMode]);
 
   useEffect(() => {
     if (pdfDoc && currentCanvasRef.current && !isFlipping) {
       renderPage(currentPage, currentCanvasRef.current);
     }
-  }, [currentPage, scale, pdfDoc, isFlipping, fitMode]);
+  }, [currentPage, scale, pdfDoc, isFlipping, fitMode, renderPage]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -129,15 +122,14 @@ export default function App() {
     }
   };
 
-  const flipPage = async (direction, targetPage = null) => {
+  const flipPage = useCallback(async (direction, targetPage = null) => {
     if (isFlipping) return;
-    
+
     const newPage = targetPage || (direction === 'next' ? currentPage + 1 : currentPage - 1);
     if (newPage < 1 || newPage > totalPages) return;
 
     setIsFlipping(true);
     setFlipDirection(direction);
-    setNextPageToShow(newPage);
 
     if (nextCanvasRef.current) {
       await renderPage(newPage, nextCanvasRef.current);
@@ -147,12 +139,11 @@ export default function App() {
       setCurrentPage(newPage);
       setIsFlipping(false);
       setFlipDirection(null);
-      setNextPageToShow(null);
     }, 600);
-  };
+  }, [isFlipping, currentPage, totalPages, renderPage]);
 
-  const goToNextPage = () => flipPage('next');
-  const goToPrevPage = () => flipPage('prev');
+  const goToNextPage = useCallback(() => flipPage('next'), [flipPage]);
+  const goToPrevPage = useCallback(() => flipPage('prev'), [flipPage]);
 
   const handlePageJump = (e) => {
     e.preventDefault();
@@ -178,34 +169,32 @@ export default function App() {
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen();
-      setIsFullscreen(true);
     } else {
       document.exitFullscreen();
-      setIsFullscreen(false);
     }
   };
 
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+  const toggleBookmark = useCallback(() => {
+    if (bookmarks.includes(currentPage)) {
+      setBookmarks(bookmarks.filter(page => page !== currentPage));
+    } else {
+      setBookmarks([...bookmarks, currentPage].sort((a, b) => a - b));
+    }
+  }, [bookmarks, currentPage]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = useCallback((e) => {
     if (!isFlipping && !showPageJump) {
       if (e.key === 'ArrowRight') goToNextPage();
       if (e.key === 'ArrowLeft') goToPrevPage();
       if (e.key === 'b' || e.key === 'B') toggleBookmark();
       if (e.key === 'g' || e.key === 'G') setShowPageJump(true);
     }
-  };
+  }, [isFlipping, showPageJump, goToNextPage, goToPrevPage, toggleBookmark]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentPage, totalPages, isFlipping, showPageJump]);
+  }, [handleKeyPress]);
 
   useEffect(() => {
     if (showPageJump && pageInputRef.current) {
@@ -213,13 +202,7 @@ export default function App() {
     }
   }, [showPageJump]);
 
-  const toggleBookmark = () => {
-    if (bookmarks.includes(currentPage)) {
-      setBookmarks(bookmarks.filter(page => page !== currentPage));
-    } else {
-      setBookmarks([...bookmarks, currentPage].sort((a, b) => a - b));
-    }
-  };
+
 
   const goToBookmark = (page) => {
     if (page !== currentPage && !isFlipping) {
@@ -236,7 +219,7 @@ export default function App() {
   };
 
   const getThemeColors = () => {
-    switch(theme) {
+    switch (theme) {
       case 'dark':
         return {
           bg: 'bg-gradient-to-br from-gray-900 to-gray-800',
@@ -283,7 +266,7 @@ export default function App() {
   const progress = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
 
   const getThemeIcon = () => {
-    switch(theme) {
+    switch (theme) {
       case 'dark': return <Moon className="w-5 h-5" />;
       case 'sepia': return <BookOpen className="w-5 h-5" />;
       default: return <Sun className="w-5 h-5" />;
@@ -419,7 +402,7 @@ export default function App() {
                 <button onClick={toggleBookmark} className={`control-button p-2 md:p-3 rounded-lg transition-colors ${bookmarks.includes(currentPage) ? 'bg-amber-600 text-white hover:bg-amber-700' : colors.button}`}>
                   {bookmarks.includes(currentPage) ? <BookmarkCheck className="w-4 h-4 md:w-5 md:h-5" /> : <Bookmark className="w-4 h-4 md:w-5 md:h-5" />}
                 </button>
-                
+
                 {bookmarks.length > 0 && (
                   <div className="relative group">
                     <button className={`control-button px-2 md:px-3 py-2 md:py-3 rounded-lg transition-colors font-medium text-xs md:text-sm ${colors.button}`}>
@@ -440,7 +423,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                
+
                 <button onClick={toggleFullscreen} className={`control-button p-2 md:p-3 rounded-lg transition-colors ${colors.button}`}>
                   <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
