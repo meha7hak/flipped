@@ -2,8 +2,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Upload, BookOpen, Moon, Sun, Bookmark, BookmarkCheck, Maximize, MinusSquare, Hash } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+// Set up PDF.js worker - correct worker setup for Vercel
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url
+).toString();
 
 export default function App() {
   const [pdfData, setPdfData] = useState(null);
@@ -42,7 +45,12 @@ export default function App() {
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
 
-      const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+      const loadingTask = pdfjsLib.getDocument({
+        data: uint8Array,
+        // Prevents CORS/worker surprises
+        disableAutoFetch: true,
+        disableStream: true,
+      });
       const pdf = await loadingTask.promise;
 
       setPdfDoc(pdf);
@@ -63,7 +71,7 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error loading PDF:', error);
-      alert('Failed to load PDF. Please try another file.');
+      alert('Failed to load PDF: ' + (error?.message || 'Unknown error'));
     }
   };
 
@@ -72,7 +80,7 @@ export default function App() {
 
     const container = containerRef.current;
     const containerWidth = container.clientWidth - 64;
-    const containerHeight = container.clientHeight - 200;
+    const containerHeight = container.clientHeight - 200; 
 
     if (fitMode === 'width') {
       return containerWidth / viewport.width;
