@@ -2,11 +2,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, Upload, BookOpen, Moon, Sun, Bookmark, BookmarkCheck, Maximize, MinusSquare, Hash } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker - correct worker setup for Vercel
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+// Set up PDF.js worker - correct worker setup for Vercel/CRA
+// Use CDN that dynamically matches the installed pdfjs-dist version
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export default function App() {
   const [pdfData, setPdfData] = useState(null);
