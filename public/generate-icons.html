@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Icons</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        canvas {
+            border: 1px solid #333;
+            margin: 10px;
+            background: #000;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #f97316;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #ea580c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PDF Icon Generator</h1>
+        <p>Right-click each canvas and "Save image as..." to download the PNG files.</p>
+        
+        <h2>192x192 (logo192.png)</h2>
+        <canvas id="canvas192" width="192" height="192"></canvas>
+        <button onclick="downloadCanvas('canvas192', 'logo192.png')">Download 192x192</button>
+        
+        <h2>512x512 (logo512.png)</h2>
+        <canvas id="canvas512" width="512" height="512"></canvas>
+        <button onclick="downloadCanvas('canvas512', 'logo512.png')">Download 512x512</button>
+        
+        <h2>32x32 (favicon.ico size)</h2>
+        <canvas id="canvas32" width="32" height="32"></canvas>
+        <button onclick="downloadCanvas('canvas32', 'favicon-32.png')">Download 32x32</button>
+    </div>
+
+    <script>
+        function drawPDFIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const scale = size / 100;
+            
+            // Clear canvas
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, size, size);
+            
+            // Create gradient for arrow
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#dc2626');
+            gradient.addColorStop(0.5, '#ea580c');
+            gradient.addColorStop(1, '#eab308');
+            
+            // Draw arrow path
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 6 * scale;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(20 * scale, 75 * scale);
+            ctx.quadraticCurveTo(30 * scale, 60 * scale, 45 * scale, 50 * scale);
+            ctx.quadraticCurveTo(60 * scale, 40 * scale, 75 * scale, 30 * scale);
+            ctx.lineTo(85 * scale, 25 * scale);
+            ctx.stroke();
+            
+            // Draw arrowhead
+            ctx.beginPath();
+            ctx.moveTo(75 * scale, 30 * scale);
+            ctx.lineTo(85 * scale, 25 * scale);
+            ctx.lineTo(80 * scale, 35 * scale);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Draw red PDF document
+            const docX = 25 * scale;
+            const docY = 20 * scale;
+            const docW = 50 * scale;
+            const docH = 60 * scale;
+            
+            // Main red square with rounded corners
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.roundRect(docX, docY, docW, docH, 4 * scale);
+            ctx.fill();
+            
+            // Folded corner (white)
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            ctx.moveTo(docX + docW, docY);
+            ctx.lineTo(docX + docW, docY + 15 * scale);
+            ctx.lineTo(docX + docW - 15 * scale, docY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+            
+            // PDF text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${14 * scale}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('PDF', docX + docW / 2, docY + 25 * scale);
+            
+            // Three lines below PDF
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2 * scale;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(docX + 10 * scale, docY + 35 * scale);
+            ctx.lineTo(docX + 40 * scale, docY + 35 * scale);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(docX + 10 * scale, docY + 42 * scale);
+            ctx.lineTo(docX + 35 * scale, docY + 42 * scale);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(docX + 10 * scale, docY + 49 * scale);
+            ctx.lineTo(docX + 30 * scale, docY + 49 * scale);
+            ctx.stroke();
+        }
+        
+        function downloadCanvas(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Draw icons when page loads
+        window.onload = function() {
+            drawPDFIcon(document.getElementById('canvas192'), 192);
+            drawPDFIcon(document.getElementById('canvas512'), 512);
+            drawPDFIcon(document.getElementById('canvas32'), 32);
+        };
+    </script>
+</body>
+</html>
